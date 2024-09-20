@@ -1,0 +1,5 @@
+jupyter
+holoviews
+bokeh
+scipy
+jupyter_bokeh
