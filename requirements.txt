@@ -3,3 +3,5 @@ holoviews
 bokeh
 scipy
 jupyter_bokeh
+duetwebapi
+loguru

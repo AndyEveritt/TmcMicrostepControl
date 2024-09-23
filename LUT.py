@@ -63,14 +63,14 @@ class LUT:
                 offs_bit = 0 if seg_base_inc == diff else 1
                 offs_bits[j + x[max(0, x_index-1)]] = offs_bit
 
-            x[x_index] = i if i < microsteps - 1 else microsteps
+            x[x_index] = i
             w_index += 1
             x_index += 1
 
             seg_differences = [differences[i]]
 
         while x_index < len(x):
-            x[x_index] = 256
+            x[x_index] = 255
             x_index += 1
 
         lut.W = w
