@@ -54,16 +54,18 @@ class LUT:
             if seg_base_inc > 2 or seg_base_inc < -1:
                 raise ValueError("Invalid segment base inclination")
 
-            if (x_index > 2 or w_index > 3):
+            if ((x_index > 2 or w_index > 3) and (i < microsteps - 1)):
                 raise ValueError("Can not fit function")
 
-            w[w_index] = seg_base_inc + 1
+            if (w_index <= 3):
+                w[w_index] = seg_base_inc + 1
 
             for j, diff in enumerate(seg_differences):
                 offs_bit = 0 if seg_base_inc == diff else 1
                 offs_bits[j + x[max(0, x_index-1)]] = offs_bit
 
-            x[x_index] = i
+            if (x_index <= 2):
+                x[x_index] = i
             w_index += 1
             x_index += 1
 
@@ -107,6 +109,8 @@ class LUT:
         for i in range(4):
             if (pos < self.X[i]):
                 return -1 + self.W[i] + (1 if mslut & (1 << mslut_index) > 0 else 0)
+            if (pos >= self.X[2]):
+                return -1 + self.W[3] + (1 if mslut & (1 << mslut_index) > 0 else 0)
 
         raise ValueError("Shouldn't be able to get here")
 
@@ -130,15 +134,21 @@ class LUT:
         if wave is None:
             wave = self.GetWaveform()
 
-        t = np.arange(1024)
-        x = np.sin(t * 2 * np.pi / 256)
+        return CalculateFFT(wave)
 
-        sr = 1024
 
-        X = fft(wave)
-        N = len(X)
-        n = np.arange(N)
-        T = N/sr
-        freq = n/T
+def CalculateFFT(wave: list[int | float]):
 
-        return (freq, np.abs(X) * 2 / 1024)
+    sr = len(wave)
+
+    X = fft(wave)
+    N = len(X)
+    n = np.arange(N)
+    T = N/sr
+    freq = n/T
+
+    return {
+        'frequency': freq,
+        'amplitude': np.abs(X) * 2 / sr,
+        'phase': np.angle(X) + np.pi / 2
+    }

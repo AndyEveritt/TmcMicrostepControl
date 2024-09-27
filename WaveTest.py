@@ -16,12 +16,19 @@ def SendGcode(duet: DuetAPI, code: str):
 
 
 def GetRegister(duet: DuetAPI, address: int) -> int | None:
-    r = SendGcode(duet, f"m569.2 p0 r{int(address)}")
-    regVals = re.findall(r'0x[\da-fA-F]{8}', r['response'])
-    if regVals is not None:
-        val = int(regVals[-1], 16)
-        logger.debug(f"Register[{hex(address)}] = {hex(val)} \"{regVals[-1]}\"")
-        return int(regVals[-1], 16)
+    while True:
+        try:
+            r = SendGcode(duet, f"m569.2 p0 r{int(address)}")
+            regVals = re.findall(r'0x[\da-fA-F]{8}', r['response'])
+            if regVals is None or len(regVals) == 0:
+                logger.warning("No register values found")
+                sleep(1)
+                continue
+            val = int(regVals[-1], 16)
+            logger.debug(f"Register[{hex(address)}] = {hex(val)}")
+            return int(regVals[-1], 16)
+        except Exception as e:
+            logger.error(f"{e}")
     logger.error("Could not get register")
     return None
 
