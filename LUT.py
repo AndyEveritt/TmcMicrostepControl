@@ -22,17 +22,33 @@ class LUT:
         return lut
 
     @staticmethod
-    def CreateFromFunction(waveform_func: Callable[[int], float], amplitude_scaler: int = 248, offset: int = 0):
-        microsteps = 256
+    def CreateFromWave(wave: list[int], first_quadrant_microsteps: int = 256):
+        """
+        Create a Look-Up Table (LUT) object from a given waveform.
+
+        The function takes a list of integer values representing the waveform and an optional parameter
+        for the number of microsteps. It calculates the Look-Up Table (LUT) parameters and returns a new
+        LUT object.
+
+        Parameters:
+        - wave (list[int]): A list of integer values representing the waveform.
+        - microsteps (int): The number of microsteps for the first quadrant of the waveform. Default is 256.
+
+        Returns:
+        - LUT: A new Look-Up Table object.
+
+        Raises:
+        - ValueError: If the number of microsteps is greater than the length of the waveform.
+        """
+        if (first_quadrant_microsteps > len(wave)):
+            raise ValueError(f"Wave does not have enough values")
 
         lut = LUT()
 
-        values = np.zeros(microsteps, dtype=int)
-        for i in range(microsteps):
-            values[i] = int((waveform_func(i) * amplitude_scaler) + offset + 0.5)
+        values = wave[0:first_quadrant_microsteps]
 
-        differences = np.zeros(microsteps, dtype=int)
-        for i in range(microsteps - 1):
+        differences = np.zeros(first_quadrant_microsteps, dtype=int)
+        for i in range(first_quadrant_microsteps - 1):
             differences[i] = values[i+1] - values[i]
 
         w = [0] * 4
@@ -41,20 +57,23 @@ class LUT:
         w_index = 0
         x_index = 0
 
-        offs_bits = np.zeros(microsteps, dtype=int)
+        offs_bits = np.zeros(first_quadrant_microsteps, dtype=int)
         seg_differences = []
 
-        for i in range(microsteps):
-            if (len(set(seg_differences + [differences[i]])) <= 2) and i < microsteps - 1:
+        for i in range(first_quadrant_microsteps):
+            if (len(set(seg_differences + [differences[i]])) <= 2) and i < first_quadrant_microsteps - 1:
                 seg_differences.append(differences[i])
                 continue
+
+            if (i == first_quadrant_microsteps - 1):
+                seg_differences.append(differences[i])
 
             seg_base_inc = min(seg_differences)
 
             if seg_base_inc > 2 or seg_base_inc < -1:
                 raise ValueError("Invalid segment base inclination")
 
-            if ((x_index > 2 or w_index > 3) and (i < microsteps - 1)):
+            if ((x_index > 2 or w_index > 3) and (i < first_quadrant_microsteps - 1)):
                 raise ValueError("Can not fit function")
 
             if (w_index <= 3):
@@ -75,6 +94,11 @@ class LUT:
             x[x_index] = 255
             x_index += 1
 
+        lastW = differences[first_quadrant_microsteps - 1] - offs_bits[first_quadrant_microsteps - 1] + 1
+        while w_index < 4:
+            w[w_index] = lastW
+            w_index += 1
+
         lut.W = w
         lut.X = x
 
@@ -91,6 +115,16 @@ class LUT:
         lut.mslutsel = (w[0]) | (w[1] << 2) | (w[2] << 4) | (w[3] << 6) | (x[0] << 8) | (x[1] << 16) | (x[2] << 24)
 
         return lut
+
+    @staticmethod
+    def CreateFromFunction(waveform_func: Callable[[int], float], amplitude_scaler: int = 248, offset: int = 0):
+        microsteps = 256
+
+        values = np.zeros(microsteps, dtype=int)
+        for i in range(microsteps):
+            values[i] = int((waveform_func(i) * amplitude_scaler) + offset + 0.5)
+
+        return LUT.CreateFromWave(values, microsteps)
 
     def CalculateSegmentation(self):
         for i in range(4):
@@ -137,7 +171,7 @@ class LUT:
         return CalculateFFT(wave)
 
 
-def CalculateFFT(wave: list[int | float]):
+def CalculateFFT(wave: list[int | float]) -> dict[str, float]:
 
     sr = len(wave)
 

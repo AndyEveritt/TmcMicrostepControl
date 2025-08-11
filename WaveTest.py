@@ -37,8 +37,7 @@ duet = DuetWebAPI("192.168.4.87")
 
 
 def GetSineTable(duet: DuetAPI, microsteps: int = 256) -> dict:
-    position = []
-    current = {'A': [], 'B': []}
+    data = []
 
     SendGcode(duet, "G91")
     SendGcode(duet, "M350 X256")
@@ -51,13 +50,16 @@ def GetSineTable(duet: DuetAPI, microsteps: int = 256) -> dict:
         currentReg = GetRegister(duet, 0x6b)
         SendGcode(duet, "G1 X0.1 F6000")
 
-        position.append(positionReg & 0x3ff)
-        current['A'].append((currentReg) & 0xFF if (currentReg >> 8)
-                            & 1 == 0 else ((currentReg) & 0xFF) - 0x100)
-        current['B'].append((currentReg >> 16) & 0xFF if (currentReg >> 24)
-                            & 1 == 0 else ((currentReg >> 16) & 0xFF) - 0x100)
-
+        data.append(
+            {
+                'position': positionReg & 0x3ff,
+                'coilA': (currentReg) & 0xFF if (currentReg >> 8) & 1 == 0 else ((currentReg) & 0xFF) - 0x100,
+                'coilB': (currentReg >> 16) & 0xFF if (currentReg >> 24) & 1 == 0 else ((currentReg >> 16) & 0xFF) - 0x100,
+            }
+        )
         sleep(0.1)
+
+    data.sort(key=lambda x: x['position'])
 
     SendGcode(duet, "G90")  # Return to absolute positioning mode
 
@@ -65,8 +67,4 @@ def GetSineTable(duet: DuetAPI, microsteps: int = 256) -> dict:
     # print(f"Current (A): {current['A']}")
     # print(f"Current (B): {current['B']}")
 
-    return {
-        'position': position,
-        'coilA': current['A'],
-        'coilB': current['B'],
-    }
+    return data
